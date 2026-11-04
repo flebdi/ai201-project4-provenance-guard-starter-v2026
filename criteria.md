@@ -42,63 +42,76 @@ Two things worth knowing before you pick numbers:
   a **miss**.
 
 ---
-## 1.
 
-<!-- Your criterion. It must name a number. -->
+<!-- DRAFT written by Claude at my request (see README → How I Used AI).
+     Revise each criterion and its reason into your own words and numbers
+     before relying on it — you'll have to defend these in unit 8. -->
 
+## 1. Plain human writing is not accused
 
+Of 10 pieces written by people — at least 4 of them plainly written (short
+sentences, common words, little punctuation beyond full stops and commas) — **at
+most 1 is labelled high-confidence AI**, in **each** of the three trials.
 
-**Why this target:**
-
-
-
----
-
-## 2.
-
-<!-- Your criterion. -->
-
-
-
-**Why this target:**
-
-
+**Why this target:** On a writing site a wrong accusation costs the writer far
+more than a missed detection costs the site. Plain writing is named because both
+of my signals score it as machine-like — it's where false positives will come
+from, so a test made only of colourful human prose would pass without proving
+anything.
 
 ---
 
-## 3.
+## 2. Clearly-AI and clearly-human text score far apart
 
-<!-- Your criterion. -->
+Across 5 clearly AI-generated pieces and 5 clearly human pieces, the **average
+combined score of the AI set is at least 0.40 higher** than the average of the
+human set, in each of the three trials.
 
-
-
-**Why this target:**
-
-
-
----
-
-## 4.
-
-<!-- Your criterion. -->
-
-
-
-**Why this target:**
-
-
+**Why this target:** If the two groups score close together, every label is
+driven by noise and the thresholds mean nothing. My two thresholds (0.35 and
+0.87) are 0.52 apart; a gap of 0.40 between the averages is the least that
+gives the obvious cases a real chance of landing on opposite sides of them.
 
 ---
 
-## 5.
+## 3. Every label is reachable and every score has exactly one label
 
-<!-- Your criterion. -->
+(a) Among my test inputs, **each of the three labels is produced at least once**.
+(b) Every score from 0.00 to 1.00 in steps of 0.01 passed to
+`scoring.score_to_label` returns **exactly one** of `human`, `unsure`, `ai` — no
+gaps, no errors.
 
+**Why this target:** A label nobody can reach is a design that only exists on
+paper, and a score with no label is a crash waiting for a real writer. Part (b)
+checks the ranges themselves, not just the inputs I happened to try.
 
+---
 
-**Why this target:**
+## 4. An appeal is always recorded
 
+**10 of 10** appeals sent with a real `content_id` return HTTP 200 and add a log
+entry with `status: under_review` after the original decision. **5 of 5**
+appeals with a made-up `content_id` return 404 and add no appeal entry.
 
+**Why this target:** The appeal is the only thing between a wrong accusation and
+nothing at all, so anything less than every time is a failure — a writer whose
+appeal vanished has no reason to believe the next one will land. The 404 half
+stops an appeal on a typo from looking like it worked.
+
+---
+
+## 5. Bad input never crashes the service
+
+Of these requests to `/submit` — missing `text`, empty `text`, whitespace-only
+`text`, `text` that isn't a string, a body that isn't a JSON object, missing
+`creator_id`, `text` over 20,000 characters, and `text` under 3 tokens —
+**0 return a 5xx**. Each returns a 4xx with an `error` field and writes a
+`rejected` entry to the audit log.
+
+**Why this target:** A crash on malformed input is one of the most common real
+failures, and an attacker's first probe. A refusal that leaves no log entry
+would make that probe invisible, which is why the log write is part of the
+target.
 
 ---
 
