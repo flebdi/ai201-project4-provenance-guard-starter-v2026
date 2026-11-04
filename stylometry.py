@@ -33,6 +33,13 @@ anything together:
 import re
 import statistics
 
+# Words per window for the moving type-token ratio.
+TTR_WINDOW = 50
+
+# Punctuation a writer chooses, as opposed to the full stops grammar forces.
+# Commas are left out: AI prose uses them as heavily as people do.
+EXPRESSIVE_PUNCTUATION = ";:—–-()!?\"'…"
+
 
 def sentences(text: str) -> list[str]:
     """Split into sentences. Rough and good enough — given to you."""
@@ -63,9 +70,20 @@ def sentence_length_spread(text: str) -> float:
     Watch the edge case: a one-sentence submission has no spread at all, and
     `stdev` raises on fewer than two values. Decide what that should return
     before the attack set decides for you.
+
+    My choice: the coefficient of variation (stdev / mean) of words per
+    sentence. 0.0 means every sentence is the same length; human prose
+    usually sits around 0.5 or above. Higher means more human.
+
+    Fewer than two sentences returns 0.0, and `style_signal` treats that
+    case as "no evidence" rather than as "perfectly even".
     """
-    # TODO: replace this
-    return 0.0
+    lengths = [len(words(s)) for s in sentences(text)]
+    lengths = [n for n in lengths if n > 0]
+    if len(lengths) < 2:
+        return 0.0
+    mean = statistics.mean(lengths)
+    return round(statistics.stdev(lengths) / mean, 4)
 
 
 def type_token_ratio(text: str) -> float:
@@ -79,9 +97,22 @@ def type_token_ratio(text: str) -> float:
     longer, because common words repeat. Two texts of different lengths aren't
     directly comparable on it, and if your test inputs vary a lot in length,
     that alone can look like a signal.
+
+    My choice: to blunt that, texts longer than one window use a moving
+    average — the mean ratio over every run of TTR_WINDOW consecutive words —
+    so a 600-word essay and a 100-word one are measured on the same footing.
+    Shorter texts fall back to the plain ratio.
     """
-    # TODO: replace this
-    return 0.0
+    tokens = words(text)
+    if not tokens:
+        return 0.0
+    if len(tokens) <= TTR_WINDOW:
+        return round(len(set(tokens)) / len(tokens), 4)
+    ratios = [
+        len(set(tokens[i:i + TTR_WINDOW])) / TTR_WINDOW
+        for i in range(len(tokens) - TTR_WINDOW + 1)
+    ]
+    return round(statistics.mean(ratios), 4)
 
 
 def punctuation_density(text: str) -> float:
@@ -93,9 +124,16 @@ def punctuation_density(text: str) -> float:
         semicolons, dashes — is a real choice. Semicolons and em dashes are
         more interesting than full stops, because they vary more between
         writers.
+
+    My choice: marks per word, counting only the ones writers choose rather
+    than the ones grammar forces — everything in EXPRESSIVE_PUNCTUATION, and
+    no full stops. Higher means more human.
     """
-    # TODO: replace this
-    return 0.0
+    tokens = words(text)
+    if not tokens:
+        return 0.0
+    marks = sum(text.count(ch) for ch in EXPRESSIVE_PUNCTUATION)
+    return round(marks / len(tokens), 4)
 
 
 # ── Combining them ───────────────────────────────────────────────────────────
@@ -121,9 +159,33 @@ def style_signal(text: str) -> float:
     clearly human, plain conventional human writing, lightly-edited AI — before
     you trust it. Plain and ordinary, not formal: formal prose reads as *human*
     to signal one, and it is plain writing that gets accused.
+
+    My rule: each measure is mapped onto 0–1 "AI-ness" with a linear ramp
+    (see `_ramp`), then:
+
+        style = 0.6 × spread_ai + 0.4 × punctuation_ai
+
+    - Spread: CV ≤ 0.10 reads fully AI, ≥ 0.70 fully human (flipped — low
+      spread is AI-ish). One sentence gives no spread, so it scores 0.5.
+    - Punctuation: 0 expressive marks per word reads fully AI, ≥ 0.08 fully
+      human (flipped).
+    - Type-token ratio gets weight 0. On my calibration texts it ran the
+      opposite way from the theory — the AI paragraph had the MORE varied
+      vocabulary — and the plain human paragraph had the lowest of all. Using
+      it either direction would be guessing, so it's reported, not scored.
     """
-    # TODO: replace this
-    return 0.5
+    if len(sentences(text)) < 2:
+        spread_ai = 0.5
+    else:
+        spread_ai = _ramp(sentence_length_spread(text), ai_at=0.10, human_at=0.70)
+    punct_ai = _ramp(punctuation_density(text), ai_at=0.0, human_at=0.08)
+    return round(0.6 * spread_ai + 0.4 * punct_ai, 4)
+
+
+def _ramp(value: float, ai_at: float, human_at: float) -> float:
+    """1.0 at or past `ai_at`, 0.0 at or past `human_at`, linear between."""
+    fraction = (value - ai_at) / (human_at - ai_at)
+    return min(max(1.0 - fraction, 0.0), 1.0)
 
 
 if __name__ == "__main__":
@@ -139,4 +201,3 @@ if __name__ == "__main__":
     print(f"type_token_ratio         {type_token_ratio(text)}")
     print(f"punctuation_density      {punctuation_density(text)}")
     print(f"style_signal             {style_signal(text)}   (higher = more likely AI)")
-    print("\nAll zeros? These are stubs — Milestone 4 is where you build them.")
