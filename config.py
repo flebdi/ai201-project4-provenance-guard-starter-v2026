@@ -46,6 +46,10 @@ DETECTOR_MODEL = os.getenv("AI201_DETECTOR_MODEL", "gpt2")
 # 300 words, which is enough for the signal to mean something.
 DETECTOR_MAX_TOKENS = 400
 
+# Longest text /submit accepts, in characters — about 3,000 words. Anything
+# bigger gets a 413 instead of tying up the model.
+MAX_TEXT_CHARS = 20_000
+
 
 # ─── Scoring (Milestone 4) ───────────────────────────────────────────────────
 # How much each signal counts toward the combined score.
@@ -56,6 +60,11 @@ DETECTOR_MAX_TOKENS = 400
 
 WEIGHT_MODEL_SIGNAL = 0.5
 WEIGHT_STYLE_SIGNAL = 0.5
+
+# When the two signals are further apart than this, the combined score is
+# capped inside the unsure band — a split can never become an AI label. See
+# scoring.combine_signals.
+DISAGREEMENT_GAP = 0.4
 
 
 # ─── Thresholds (Milestone 5) ────────────────────────────────────────────────
@@ -72,7 +81,11 @@ WEIGHT_STYLE_SIGNAL = 0.5
 # that decide who pays for it.
 
 HUMAN_THRESHOLD = 0.35
-AI_THRESHOLD = 0.65
+# Raised from 0.65. A plainly-written human paragraph (short sentences, common
+# words, no expressive punctuation) scored 0.836 — both signals agreed it was
+# AI. Clearly-AI text scored 0.906. 0.87 sits between them: plain writing
+# lands in "unsure" instead of being accused, and more AI text gets through.
+AI_THRESHOLD = 0.87
 
 # ⚠️ One thing that catches people out in Milestone 5. A weighted average can
 # only land between its two inputs — so while `style_signal` is still the stub
