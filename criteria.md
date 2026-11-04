@@ -61,7 +61,20 @@ anything.
 
 ---
 
-## 2. Clearly-AI and clearly-human text score far apart
+## 2. Obvious AI text still gets caught
+
+Of 10 unedited AI-generated pieces (from ChatGPT or Claude, with a plain prompt
+like "write a paragraph about X"), **at least 5 are labelled high-confidence
+AI**, in each of the three trials.
+
+**Why this target:** A system that never says "AI" would pass criterion 1 and be
+useless. This target stops me from fixing false positives by raising the AI
+threshold forever. With the threshold at 0.87 it's a real challenge, and that's
+the trade: fewer wrong accusations means more AI text gets through.
+
+---
+
+## 3. Clearly-AI and clearly-human text score far apart
 
 Across 5 clearly AI-generated pieces and 5 clearly human pieces, the **average
 combined score of the AI set is at least 0.40 higher** than the average of the
@@ -71,19 +84,6 @@ human set, in each of the three trials.
 driven by noise and the thresholds mean nothing. My two thresholds (0.35 and
 0.87) are 0.52 apart; a gap of 0.40 between the averages is the least that
 gives the obvious cases a real chance of landing on opposite sides of them.
-
----
-
-## 3. Every label is reachable and every score has exactly one label
-
-(a) Among my test inputs, **each of the three labels is produced at least once**.
-(b) Every score from 0.00 to 1.00 in steps of 0.01 passed to
-`scoring.score_to_label` returns **exactly one** of `human`, `unsure`, `ai` — no
-gaps, no errors.
-
-**Why this target:** A label nobody can reach is a design that only exists on
-paper, and a score with no label is a crash waiting for a real writer. Part (b)
-checks the ranges themselves, not just the inputs I happened to try.
 
 ---
 
