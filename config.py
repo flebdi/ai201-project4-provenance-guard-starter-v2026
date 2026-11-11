@@ -58,8 +58,13 @@ MAX_TEXT_CHARS = 20_000
 # down BEFORE you code it, and to put the numbers in your README. Whatever you
 # decide, it goes here.
 
-WEIGHT_MODEL_SIGNAL = 0.5
-WEIGHT_STYLE_SIGNAL = 0.5
+# Unit 8 improvement (the one change): 0.5/0.5 → 0.8/0.2. On the before run,
+# signal two separated my AI paragraphs from the human texts by 0.039 (0.724
+# vs 0.685) and signal one by 0.126 (0.861 vs 0.735) — about 3 to 1 — and
+# signal two is what five of the evasions moved. Weights in that proportion,
+# rounded: 0.8 / 0.2. Not searched for; see README → The Improvement.
+WEIGHT_MODEL_SIGNAL = 0.8
+WEIGHT_STYLE_SIGNAL = 0.2
 
 # When the two signals are further apart than this, the combined score is
 # capped inside the unsure band — a split can never become an AI label. See
