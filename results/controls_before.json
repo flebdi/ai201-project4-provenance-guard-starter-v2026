@@ -1,0 +1,42 @@
+{
+  "control_ai_base": {
+    "note": "this was EV03 by mistake (still has the quotation); see control_ai_clean",
+    "status": 200,
+    "content_id": "aced13b5d318",
+    "guess": "unsure",
+    "combined_score": 0.4964,
+    "model_score": 0.6662,
+    "style_score": 0.3266
+  },
+  "control_human_campsite": {
+    "status": 200,
+    "content_id": "a192fe4deb59",
+    "guess": "unsure",
+    "combined_score": 0.63,
+    "model_score": 0.6175,
+    "style_score": 0.6425,
+    "note": "same text as FP01"
+  },
+  "RQ10_alone": {
+    "status": 400,
+    "body": {
+      "error": "missing_creator_id",
+      "message": "Send a non-empty creator_id string."
+    }
+  },
+  "RQ11_alone": {
+    "status": 400,
+    "body": {
+      "error": "missing_creator_id",
+      "message": "Send a non-empty creator_id string."
+    }
+  },
+  "control_ai_clean": {
+    "text": "The importance of effective communication in the workplace cannot be overstated. Teams that communicate clearly are better positioned to achieve their objectives and avoid costly misunderstandings. There are several strategies organisations can adopt to improve this. First, establishing regular check-ins ensures that information flows consistently between team members. Second, documenting decisions provides a reference point that reduces ambiguity. Finally, encouraging an environment where questions are welcomed helps surface issues early. Implementing these approaches can lead to meaningful improvements in team performance and overall satisfaction.",
+    "content_id": "0554df7f373d",
+    "guess": "unsure",
+    "combined_score": 0.7749,
+    "model_score": 0.6694,
+    "style_score": 0.8803
+  }
+}
