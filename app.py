@@ -92,6 +92,10 @@ if config.RATE_LIMITING_ENABLED:
         key_func=rate_limit_key,
         app=app,
         storage_uri=config.RATE_LIMIT_STORAGE,
+        # "5 per minute" means 5 in any 60 seconds. The default fixed window
+        # resets on the clock minute, so a burst straddling :59 → :00 gets
+        # twice the limit through.
+        strategy="moving-window",
         default_limits=[],
     )
 
@@ -153,7 +157,7 @@ def health():
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
 @app.post("/submit")
-# @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
 def submit():
     """
     Take a piece of text, decide about it, log the decision, answer.
@@ -307,11 +311,7 @@ def appeal():
         return _reject(None, 404, "unknown_content_id",
                        f"No submission found with content_id '{content_id}'. Check for a typo.")
 
-    audit.log_appeal(
-        content_id=decision["content_id"],
-        creator_id=decision["creator_id"],
-        reasoning=reasoning.strip(),
-    )
+    audit.log_appeal(decision, reasoning=reasoning.strip())
     return jsonify({
         "content_id": decision["content_id"],
         "status": "under_review",

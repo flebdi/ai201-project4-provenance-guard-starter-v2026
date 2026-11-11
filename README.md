@@ -340,7 +340,8 @@ revise.
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** 5 per minute, 50 per day (`config.py`, applied to `/submit` in
+`app.py`)
 
 **Why those numbers and not others:**
 <!-- Think about two people: a real writer submitting their own work a few
@@ -348,17 +349,48 @@ revise.
      thresholds. Your numbers have to be liveable for the first and hostile to
      the second. -->
 
+A real writer submits a piece, maybe fixes a typo and submits it again, a few
+times an hour at most. Five in a minute covers that burst with room to spare,
+and 50 a day is roughly ten times what a busy writer would send. A script
+trying to find where my 0.35 and 0.87 thresholds sit needs hundreds of slightly
+different texts. At 5 a minute it gets one every 12 seconds, and at 50 a day one
+identity needs weeks to map a threshold. The original 10 per minute / 200 per
+day let one identity send 200 probes a day, which is enough to map a threshold
+in an afternoon.
+
+The window is a **moving** one (`strategy="moving-window"` in `app.py`). With the
+default fixed window my first flood let 6 through, not 5: the first request was
+slow while GPT-2 loaded, so it fell in the previous clock minute and the count
+reset partway through the burst. The moving window means "5 in any 60 seconds".
+
 **What a caller counts as:** <!-- per address, or per creator_id? They fail
 differently — one script can look like a thousand callers, and one household
 can look like one. -->
+
+Each `creator_id`, falling back to the IP address when a request has no usable
+`creator_id` (`app.py::rate_limit_key`). Per creator means a household or
+classroom sharing one address isn't treated as one caller. The weakness: the
+caller picks its own `creator_id`, so a script can rotate ids and look like a
+thousand different writers, and this limit won't stop it. A real deployment
+would take the creator from a login rather than the request body, and would add
+a looser per-address limit on top. The limiter also counts every request,
+including ones that are later refused as bad input. It runs before validation.
 
 **The run of status codes when I pushed past it:**
 
 <!-- python run_attacks.py --flood 15 -->
 
 ```
+$ python run_attacks.py --flood 15
+15 submissions as 'flood_tester' against http://127.0.0.1:5000
 
+200 200 200 200 200 429 429 429 429 429 429 429 429 429 429
+
+10 of 15 were rate limited.
 ```
+
+Each 429 also writes a `rejected` entry to the audit log with
+`reason: rate_limited`, so a flood leaves a trace instead of an absence.
 
 ---
 

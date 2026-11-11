@@ -73,7 +73,22 @@ def log_decision(
     return _append(entry)
 
 
-def log_appeal(content_id: str, creator_id: str, reasoning: str) -> dict:
+def _blank_entry(creator_id, status: str) -> dict:
+    """The nine required fields, every one present, unfilled ones as null."""
+    return {
+        "timestamp": _now(),
+        "content_id": None,
+        "creator_id": creator_id,
+        "guess": None,
+        "model_score": None,
+        "style_score": None,
+        "combined_score": None,
+        "label": None,
+        "status": status,
+    }
+
+
+def log_appeal(decision: dict, reasoning: str) -> dict:
     """
     Record an appeal beside the original decision.
 
@@ -81,15 +96,17 @@ def log_appeal(content_id: str, creator_id: str, reasoning: str) -> dict:
     decision stays exactly where it was and the appeal sits after it — which is
     the whole point of an audit log. Someone reading it later can see what was
     decided, that it was challenged, and in what order.
+
+    The appeal row repeats the decision's guess, scores and label, so a reviewer
+    reading only the appeal can see what is being challenged.
     """
-    return _append({
-        "timestamp": _now(),
-        "content_id": content_id,
-        "creator_id": creator_id,
-        "event": "appeal",
-        "status": "under_review",
-        "reasoning": reasoning,
-    })
+    entry = _blank_entry(decision.get("creator_id"), status="under_review")
+    for field in ("content_id", "guess", "model_score", "style_score",
+                  "combined_score", "label"):
+        entry[field] = decision.get(field)
+    entry["event"] = "appeal"
+    entry["reasoning"] = reasoning
+    return _append(entry)
 
 
 def log_rejection(creator_id: str, reason: str, **extra) -> dict:
@@ -102,14 +119,11 @@ def log_rejection(creator_id: str, reason: str, **extra) -> dict:
     thousand requests that got a 429 and left no trace look exactly like a
     quiet afternoon.
     """
-    return _append({
-        "timestamp": _now(),
-        "creator_id": creator_id,
-        "event": "rejected",
-        "status": "rejected",
-        "reason": reason,
-        **extra,
-    })
+    entry = _blank_entry(creator_id, status="rejected")
+    entry["event"] = "rejected"
+    entry["reason"] = reason
+    entry.update(extra)
+    return _append(entry)
 
 
 def _append(entry: dict) -> dict:
