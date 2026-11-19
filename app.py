@@ -24,9 +24,11 @@ Routes:
     GET  /health      is the service up, and is the model loaded
 """
 
+import time
 import uuid
 
-from flask import Flask, jsonify, request
+from flask import Flask, g, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 import audit
 import config
@@ -35,6 +37,53 @@ import scoring
 import stylometry
 
 app = Flask(__name__)
+
+
+# ── Instrumentation (capstone) ────────────────────────────────────────────────
+# Every log record gets how long the request took and what came in, so a run
+# can be read back afterwards without re-sending anything.
+
+@app.before_request
+def _start_clock():
+    g.t0 = time.perf_counter()
+
+
+def _trace(status_code: int) -> dict:
+    """Fields added to every log record: timing, status, and the input."""
+    payload = request.get_json(silent=True)
+    text = payload.get("text") if isinstance(payload, dict) else None
+    t0 = getattr(g, "t0", None)
+    trace = {
+        "http_status": status_code,
+        "duration_ms": round((time.perf_counter() - t0) * 1000, 1) if t0 else None,
+        "text_chars": len(text) if isinstance(text, str) else None,
+        "text_excerpt": text[:config.LOG_EXCERPT_CHARS] if isinstance(text, str) else None,
+    }
+    if not isinstance(payload, dict):
+        trace["body_type"] = type(payload).__name__ if payload is not None else "unparseable"
+    return trace
+
+
+@app.errorhandler(Exception)
+def _crashed(exc):
+    """
+    A crash still leaves a record. Without this, a 500 shows up in the log
+    only as a missing line.
+    """
+    if isinstance(exc, HTTPException):
+        return exc
+    payload = request.get_json(silent=True)
+    creator = payload.get("creator_id") if isinstance(payload, dict) else None
+    audit.log_rejection(
+        creator_id=creator if isinstance(creator, str) and creator else "unknown",
+        reason="internal_error",
+        path=request.path,
+        error=f"{type(exc).__name__}: {exc}"[:200],
+        **_trace(500),
+    )
+    app.logger.exception("unhandled error on %s", request.path)
+    return jsonify({"error": "internal_error",
+                    "message": "Something went wrong on our side. It has been logged."}), 500
 
 
 # ── Rate limiting — UNIT 8 ────────────────────────────────────────────────────
@@ -114,6 +163,7 @@ if config.RATE_LIMITING_ENABLED:
             creator_id=payload.get("creator_id", "unknown"),
             reason="rate_limited",
             limit=str(exc.description),
+            **_trace(429),
         )
         return jsonify({
             "error": "rate_limited",
@@ -258,6 +308,7 @@ def submit():
         combined_score=combined,
         label=label,
         confidence=confidence,
+        **_trace(200),
     )
 
     return jsonify({
@@ -279,6 +330,7 @@ def _reject(creator_id, status_code, reason, message, **extra):
         reason=reason,
         path=request.path,
         **extra,
+        **_trace(status_code),
     )
     return jsonify({"error": reason, "message": message}), status_code
 
