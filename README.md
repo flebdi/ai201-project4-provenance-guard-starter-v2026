@@ -1219,3 +1219,45 @@ site that misses some AI text.
 ---
 
 📖 **How to run this project: [RUNNING.md](RUNNING.md)**
+
+---
+
+## Capstone
+
+**What This Extends**
+
+This extends **Provenance Guard** (project 4), the Flask service that takes a
+piece of writing on `POST /submit`, scores it with two signals (GPT-2
+perplexity and a stylometry score), and returns `human`, `unsure` or `ai` with
+an appeal route behind it.
+
+What's new is an **input gate** in front of the two signals. Today the service
+scores anything that is a non-empty string. In the unit 8 attack run that meant
+control characters and punctuation came back `human`, and a 160-letter single
+"word" and a row of emoji came back `ai` at 0.938 (MF03–MF06). Those are
+confident labels on things that aren't writing at all. The gate refuses text
+that isn't mostly words with a `422 not_writing`, and logs the refusal, before
+either signal runs.
+
+Alongside the gate, every request (decided, refused, rate-limited or crashed)
+now leaves a log record with its duration and a short excerpt of what came in.
+Before this unit, the log had no timing and no input.
+
+**The Shape**
+
+**B — Harden against failure.** The extension is what happens on the bad path:
+input that is a string, so it passes every existing check, but isn't writing.
+The service's job on that path is to say "this isn't something I can judge"
+instead of making up a verdict. The operational layer (one start command,
+structured log, a measured cost) comes along with it, as every shape requires.
+
+Out of scope, on purpose:
+
+- **Non-English writing (MF07).** Right-to-left script is real writing, so the
+  gate lets it through. Saying "we can only check English" is a separate
+  feature with its own detection problem.
+- **Threshold or signal changes.** The evasion and false-positive results
+  (EV01–EV10, FP01–FP08) stay where unit 8 left them. I'm not touching
+  `scoring.py`, `stylometry.py` or `detector.py`.
+- **Hosting.** The service loads GPT-2 locally (about 550 MB on disk, more in
+  memory). That doesn't fit in a 512 MB free tier, so this runs on Path B.
