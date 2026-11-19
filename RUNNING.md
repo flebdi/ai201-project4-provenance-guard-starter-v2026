@@ -1,5 +1,69 @@
 # Running Provenance Guard
 
+## Capstone run path — Path B (local, with logs)
+
+This service runs on my own machine, not on a host. It loads GPT-2 in-process
+(526 MB on disk; the serving process measured 982 MB of memory once warm), which is nearly double
+the 512 MB free hosting tier.
+
+### The command
+
+From the repo root, with the virtual environment set up (below):
+
+```bash
+python app.py
+```
+
+That's the whole run path. It serves on `http://127.0.0.1:5000` and appends one
+JSON line per request to `logs/audit.jsonl`. Check it's up from another
+terminal:
+
+```bash
+curl http://127.0.0.1:5000/health
+```
+
+The **first `/submit` after start is slow** (about 17 s on my laptop), because
+GPT-2 loads on first use rather than at startup. Every request after that is
+warm (about 0.3 s). Anything that measures latency has to say which one it
+means.
+
+### What the environment needs
+
+| | |
+|---|---|
+| Python | 3.13 (tested on 3.13.3, Windows 11, CPU only, 16 GB RAM) |
+| Packages | `requirements-lock.txt` has the exact versions. `requirements.txt` keeps the starter's ranges |
+| Model | `gpt2` from Hugging Face, 526 MB, downloaded once to `~/.cache/huggingface` by `python detector.py` |
+| API keys | none. Nothing calls a hosted service |
+| Disk | about 1.5 GB for torch plus the model |
+
+### From a clean checkout
+
+```bash
+git clone https://github.com/flebdi/ai201-project4-provenance-guard-starter-v2026.git
+cd ai201-project4-provenance-guard-starter-v2026
+python -m venv .venv
+source .venv/Scripts/activate        # macOS/Linux: source .venv/bin/activate
+                                     # PowerShell: .venv\Scripts\Activate.ps1
+pip install -r requirements-lock.txt
+python detector.py                   # downloads GPT-2 the first time, scores a sample
+python test.py                       # 9 checks; all should pass
+python app.py
+```
+
+### Reading the record afterwards
+
+- `logs/audit.jsonl` is the run record. One line per request, decided or
+  refused (`curl "http://127.0.0.1:5000/log?limit=10"` reads the tail).
+- `python measure_cost.py -n 10` sends ten real paragraphs and writes the
+  per-request timings to `results/cost_<date>.md`. The server has to be
+  running.
+
+Everything below this line is the starter's original guide, unchanged.
+
+---
+
+
 Everything about how the starter works.
 
 This is a **web service**. It runs on your machine and you talk to it with
