@@ -50,6 +50,22 @@ DETECTOR_MAX_TOKENS = 400
 # bigger gets a 413 instead of tying up the model.
 MAX_TEXT_CHARS = 20_000
 
+# ─── Input gate (capstone) ───────────────────────────────────────────────────
+# Text that isn't mostly words gets a 422 before either signal runs. Unit 8's
+# attack run scored emoji, punctuation, control characters and one 160-letter
+# "word" with confident labels (MF03–MF06). A "word" here is a run of two or
+# more letters in any script, so "I" and "a" don't count but Arabic does.
+#
+# 3 words: FP08 ("Went for a run. Legs hurt. Worth it.") is the shortest real
+# submission in the attack set and has 7, so 3 leaves room below it.
+# 0.5: at least half the non-space characters have to be letters.
+GATE_MIN_WORDS = 3
+GATE_MIN_LETTER_SHARE = 0.5
+
+# How much of each submission the log keeps, in characters. Enough to recognise
+# an input later; not so much that the log becomes a copy of everyone's writing.
+LOG_EXCERPT_CHARS = 80
+
 
 # ─── Scoring (Milestone 4) ───────────────────────────────────────────────────
 # How much each signal counts toward the combined score.
