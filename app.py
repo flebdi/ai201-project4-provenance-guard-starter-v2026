@@ -30,6 +30,7 @@ from flask import Flask, jsonify, request
 
 import audit
 import config
+import gate
 import scoring
 import stylometry
 
@@ -223,6 +224,15 @@ def submit():
     if problem:
         return _reject(creator_id, *problem)
 
+    # Capstone: is this writing at all? Both signals will score emoji or
+    # punctuation, so the refusal has to happen before them.
+    not_writing = gate.writing_problem(text)
+    if not_writing:
+        return _reject(creator_id, 422, "not_writing",
+                       f"This doesn't look like writing: {not_writing['why']}.",
+                       gate_words=not_writing["words"],
+                       gate_letter_share=not_writing["letter_share"])
+
     import detector
     try:
         model_score = detector.model_signal(text)
@@ -262,12 +272,13 @@ def submit():
     })
 
 
-def _reject(creator_id, status_code, reason, message):
+def _reject(creator_id, status_code, reason, message, **extra):
     """Refuse a request, leaving a trace in the audit log."""
     audit.log_rejection(
         creator_id=creator_id if isinstance(creator_id, str) and creator_id else "unknown",
         reason=reason,
         path=request.path,
+        **extra,
     )
     return jsonify({"error": reason, "message": message}), status_code
 
